@@ -338,7 +338,7 @@ const checkpointPositions = [
   { x: 44800, y: proportionalSize(400) - checkpointHeight, z: 6 },
   { x: 60800, y: proportionalSize(450) - checkpointHeight, z: 7 },
   { x: 79300, y: proportionalSize(250) - checkpointHeight, z: 8 },
-  { x: 100200, y: proportionalSize(350) - checkpointHeight, z: 9 },
+  { x: 100400, y: proportionalSize(350) - checkpointHeight, z: 9 },
   { x: 118900, y: proportionalSize(250) - checkpointHeight, z: 10 },
 ];
 
