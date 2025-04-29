@@ -41,8 +41,49 @@ class Player {
   }
 
   draw() {
+    // Create a rounded player body
+    const radius = 12; // For rounded corners
     ctx.fillStyle = "#99c9ff";
-    ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+    ctx.beginPath();
+    ctx.moveTo(this.position.x + radius, this.position.y);
+    ctx.arc(this.position.x + this.width - radius, this.position.y + radius, radius, Math.PI * 1.5, Math.PI * 2); // top-right rounded
+    ctx.arc(this.position.x + this.width - radius, this.position.y + this.height - radius, radius, 0, Math.PI * 0.5); // bottom-right rounded
+    ctx.arc(this.position.x + radius, this.position.y + this.height - radius, radius, Math.PI * 0.5, Math.PI); // bottom-left rounded
+    ctx.arc(this.position.x + radius, this.position.y + radius, radius, Math.PI, Math.PI * 1.5); // top-left rounded
+  
+    ctx.closePath();
+    ctx.fill();
+
+    // Add sunglasses
+    const eyeY = this.position.y + this.height * 0.3;
+    const leftLensX = this.position.x + this.width * 0.3;
+    const rightLensX = this.position.x + this.width * 0.7;
+    const lensRadius = 6;
+  
+    ctx.fillStyle = "#333"; // Dark color for sunglasses
+    ctx.beginPath();
+    ctx.arc(leftLensX, eyeY, lensRadius, 0, Math.PI * 2); // Left lens
+    ctx.arc(rightLensX, eyeY, lensRadius, 0, Math.PI * 2); // Right lens
+    ctx.fill();
+
+    // Sunglasses frame (dark line)
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(leftLensX - lensRadius, eyeY);
+    ctx.lineTo(rightLensX + lensRadius, eyeY);
+    ctx.stroke();
+
+    // Add a smile
+    const smileX = this.position.x + this.width / 2;
+    const smileY = this.position.y + this.height * 0.6;
+    const smileRadius = 8;
+
+    ctx.beginPath();
+    ctx.arc(smileX, smileY, smileRadius, 0, Math.PI); // Smile arc (half circle)
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#222"; // Smile line color
+    ctx.stroke();
   }
   
   update() {
@@ -116,9 +157,68 @@ class Platform {
     this.width = 200;
     this.height = proportionalSize(40);
   }
+
   draw() {
-    ctx.fillStyle = "#acd157";
-    ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+    const grassHeight = this.height * 0.2;
+    const stoneHeight = this.height - grassHeight;
+
+    // Grass Top
+    const grassGradient = ctx.createLinearGradient(
+      this.position.x,
+      this.position.y,
+      this.position.x,
+      this.position.y + grassHeight
+    );
+    grassGradient.addColorStop(0, "#7ec850");
+    grassGradient.addColorStop(1, "#4e9e29");
+    ctx.fillStyle = grassGradient;
+    ctx.fillRect(this.position.x, this.position.y, this.width, grassHeight);
+
+    // Bumpy grass edge
+    for (let i = 0; i < this.width; i += 8) {
+      ctx.beginPath();
+      ctx.arc(this.position.x + i, this.position.y + 2, 4, Math.PI, 0);
+      ctx.fillStyle = "#7ec850";
+      ctx.fill();
+    }
+
+    // Stone Base
+    const stoneY = this.position.y + grassHeight;
+    const stoneGradient = ctx.createLinearGradient(
+      this.position.x,
+      stoneY,
+      this.position.x,
+      stoneY + stoneHeight
+    );
+    stoneGradient.addColorStop(0, "#bbb");
+    stoneGradient.addColorStop(1, "#363333");
+
+    ctx.fillStyle = stoneGradient;
+    ctx.fillRect(this.position.x, stoneY, this.width, stoneHeight);
+/*
+    // Stone Block Cracks
+    const blockHeight = 12;
+    const blockWidth = 20;
+
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 1;
+
+    for (let y = 0; y < stoneHeight; y += blockHeight) {
+      for (let x = 0; x < this.width; x += blockWidth) {
+        const startX = this.position.x + x;
+        const startY = stoneY + y;
+
+        ctx.strokeRect(startX, startY, blockWidth, blockHeight);
+      }
+    }
+*/
+    // Slight texture dots
+    for (let i = 0; i < 10; i++) {
+      const dotX = this.position.x + Math.random() * this.width;
+      const dotY = stoneY + Math.random() * stoneHeight;
+      ctx.fillStyle = "rgba(50, 50, 50, 0.2)";
+      ctx.fillRect(dotX, dotY, 2, 2);
+    }
   }
 }
 
@@ -136,9 +236,22 @@ class CheckPoint {
   };
 
   draw() {
-    ctx.fillStyle = "#f1be32";
-    ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+    const centerX = this.position.x + this.width / 2;
+    const centerY = this.position.y + this.height / 2;
+
+    // Outer glow
+    ctx.shadowColor = "#f1be32";
+    ctx.shadowBlur = 20;
+
+    // Glowing portal (ellipse)
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, this.width / 2, this.height / 2, 0, 0, 2 * Math.PI);
+    ctx.fillStyle = "#ffe066";
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
   }
+  
   claim() {
     this.width = 0;
     this.height = 0;
