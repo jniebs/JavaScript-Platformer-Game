@@ -525,7 +525,8 @@ const startGame = () => {
   scrollOffset = 0;
   isCheckpointCollisionDetectionActive = true;
   keys.jumpKey.pressed = false;
-
+  hasGameOverScreenShown = true;
+  
   // Reset player
   player.onGround = false;
   player.reset({ x: proportionalSize(10), y: proportionalSize(400) });
@@ -625,7 +626,6 @@ const startGame = () => {
 //Reset Game Function
 const resetGame = () => {
   isGameRunning = false;
-  hasGameOverScreenShown = true;
   livesScreen.style.display = "none";
   checkpointScreen.style.display = "none";
   gameOverScreen.style.display = "none";
