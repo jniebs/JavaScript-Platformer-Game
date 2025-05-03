@@ -72,6 +72,25 @@
     display: none;
   }
   
+  .lives-screen h2,
+  .lives-screen h3,
+  .lives-screen h4 {
+    font-size: 1.5rem; /* Or whatever size you prefer */
+    font-weight: bold;
+    margin: 0.2em 0;
+  }
+
+  .checkpoint-icon {
+    display: inline-block;
+    width: 16px;
+    height: 28px;
+    background: radial-gradient(circle at center, #ffe066 40%, #f1be32 70%, transparent 100%);
+    border-radius: 50% / 60%;
+    margin-right: 8px;
+    vertical-align: middle;
+    box-shadow: 0 0 6px 2px rgba(255, 224, 102, 0.7);
+    }
+
   .checkpoint-screen {
     position: absolute;
     left: 0;
@@ -86,6 +105,20 @@
     display: none;
   }
   
+  .game-over-screen {
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    width: 20%;
+    text-align: center;
+    background-color: var(--section-bg-color);
+    border-radius: 20px;
+    padding: 10px;
+    display: none;
+  }
+
   #canvas {
     display: none;
   }
