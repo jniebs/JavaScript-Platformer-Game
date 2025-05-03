@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,9 +13,14 @@
         Help the blue player navigate to the yellow checkpoints.
       </p>
       <p class="instructions">
-        Use the keyboard arrows to move the player around.
+        Use the keyboard arrows to move the player back or forward.
       </p>
-      <p class="instructions">You can also use the spacebar to jump.</p>
+      <p class="instructions">
+        You can also use the spacebar or up arrow to jump.
+      </p>
+      <p class="instructions">
+        Your max jumps allowed will increase with each checkpoint reached.
+      </p>
 
       <div class="btn-container">
         <button class="btn" id="start-btn">Start Game</button>
@@ -26,7 +30,11 @@
     <div class="checkpoint-screen">
       <h2>Congrats!</h2>
       <p>You reached the last checkpoint.</p>
-      <button class="btn" id="reset-btn" hidden>New Game</button>
+    </div>
+
+    <div class="game-over-screen">
+      <h2>Game Over!</h2>
+      <button class="btn" id="reset-btn">New Game</button>
     </div>
 
     <div class="lives-screen">
@@ -34,6 +42,8 @@
       <h2></h2>
       <p>Checkpoints Left:</p>
       <h3></h3>
+      <p>Jumps Left:</p>
+      <h4 id="jump-count"></h4>
     </div>
 
     <canvas id="canvas"></canvas>
