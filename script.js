@@ -3,9 +3,11 @@ const resetBtn = document.getElementById("reset-btn");
 const canvas = document.getElementById("canvas");
 const startScreen = document.querySelector(".start-screen");
 const checkpointScreen = document.querySelector(".checkpoint-screen");
+const gameOverScreen = document.querySelector(".game-over-screen");
 const congrats = checkpointScreen.querySelector("h2");
 const livesScreen = document.querySelector(".lives-screen");
 const livesCount = livesScreen.querySelector("h2");
+const jumpCountDisplay = document.getElementById("jump-count");
 const checkpointCount = livesScreen.querySelector("h3");
 const checkpointMessage = document.querySelector(".checkpoint-screen > p");
 const ctx = canvas.getContext("2d");
@@ -14,14 +16,18 @@ canvas.height = innerHeight;
 const gravity = 0.5;
 let lives = 5;
 let checkpointsLeft = 10;
+let maxJumps = 5;
+let jumpsLeft = maxJumps;
+const platformPositions = [];
+const checkpointPositions = [];
 let isCheckpointCollisionDetectionActive = true;
 let scrollOffset = 0;
-
-//Calculate Proportional Size of Screen
+let isGameRunning = false;
+let hasGameOverScreenShown = false;
 const proportionalSize = (size) => {
   return innerHeight < 500 ? Math.ceil((size / 500) * innerHeight) : size;
 }
-
+const checkpointHeight = proportionalSize(70);
 let lastCheckpoint = { x: proportionalSize(10), y: proportionalSize(400) }; 
 
 //Player Constructor
@@ -42,7 +48,7 @@ class Player {
 
   draw() {
     // Create a rounded player body
-    const radius = 12; // For rounded corners
+    const radius = 12; 
     ctx.fillStyle = "#99c9ff";
     ctx.beginPath();
     ctx.moveTo(this.position.x + radius, this.position.y);
@@ -54,19 +60,19 @@ class Player {
     ctx.closePath();
     ctx.fill();
 
-    // Add sunglasses
+    // Sunglasses
     const eyeY = this.position.y + this.height * 0.3;
     const leftLensX = this.position.x + this.width * 0.3;
     const rightLensX = this.position.x + this.width * 0.7;
     const lensRadius = 6;
-  
-    ctx.fillStyle = "#333"; // Dark color for sunglasses
+
+    ctx.fillStyle = "#333";
     ctx.beginPath();
-    ctx.arc(leftLensX, eyeY, lensRadius, 0, Math.PI * 2); // Left lens
-    ctx.arc(rightLensX, eyeY, lensRadius, 0, Math.PI * 2); // Right lens
+    ctx.arc(leftLensX, eyeY, lensRadius, 0, Math.PI * 2);
+    ctx.arc(rightLensX, eyeY, lensRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Sunglasses frame (dark line)
+    // Frame
     ctx.strokeStyle = "#222";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -74,27 +80,35 @@ class Player {
     ctx.lineTo(rightLensX + lensRadius, eyeY);
     ctx.stroke();
 
-    // Add a smile
+    // Smile
     const smileX = this.position.x + this.width / 2;
     const smileY = this.position.y + this.height * 0.6;
     const smileRadius = 8;
 
     ctx.beginPath();
-    ctx.arc(smileX, smileY, smileRadius, 0, Math.PI); // Smile arc (half circle)
+    ctx.arc(smileX, smileY, smileRadius, 0, Math.PI);
     ctx.lineWidth = 2;
-    ctx.strokeStyle = "#222"; // Smile line color
+    ctx.strokeStyle = "#222";
     ctx.stroke();
   }
   
   update() {
     this.draw();
+    // Apply Gravity
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
 
+    // Check if on the ground
+    if (this.velocity.y !== 0) {
+      this.onGround = false;
+    } else {
+      this.onGround = true;
+    }
+    
     let grounded = false;
     let onGround = false;
 
-    //Check If Player On Platform or Ground
+    //Check if player on platform or ground
     platforms.forEach(platform => {
       if (this.position.y + this.height <= platform.position.y && 
           this.position.y + this.height + this.velocity.y >= platform.position.y && 
@@ -109,9 +123,15 @@ class Player {
 
     // If player is not on the ground (falling or mid-air)
     if (!onGround && this.position.y + this.height <= canvas.height) {
-      this.velocity.y += gravity; // Apply gravity if in the air
+      this.velocity.y += gravity; 
     }
     this.onGround = grounded;
+
+    // If player is on ground reset jump count
+    if (this.onGround && grounded) {
+      jumpsLeft = maxJumps;
+      updateLivesDisplay();
+    }
 
     // Restrict player to canvas boundaries
     if (this.position.y + this.height + this.velocity.y <= canvas.height) {
@@ -143,7 +163,6 @@ class Player {
       y: 0
     };
     this.onGround = false;
-
   }
 }
 
@@ -182,7 +201,7 @@ class Platform {
       ctx.fill();
     }
 
-    // Stone Base
+    // Stone base
     const stoneY = this.position.y + grassHeight;
     const stoneGradient = ctx.createLinearGradient(
       this.position.x,
@@ -195,30 +214,6 @@ class Platform {
 
     ctx.fillStyle = stoneGradient;
     ctx.fillRect(this.position.x, stoneY, this.width, stoneHeight);
-/*
-    // Stone Block Cracks
-    const blockHeight = 12;
-    const blockWidth = 20;
-
-    ctx.strokeStyle = "#555";
-    ctx.lineWidth = 1;
-
-    for (let y = 0; y < stoneHeight; y += blockHeight) {
-      for (let x = 0; x < this.width; x += blockWidth) {
-        const startX = this.position.x + x;
-        const startY = stoneY + y;
-
-        ctx.strokeRect(startX, startY, blockWidth, blockHeight);
-      }
-    }
-*/
-    // Slight texture dots
-    for (let i = 0; i < 10; i++) {
-      const dotX = this.position.x + Math.random() * this.width;
-      const dotY = stoneY + Math.random() * stoneHeight;
-      ctx.fillStyle = "rgba(50, 50, 50, 0.2)";
-      ctx.fillRect(dotX, dotY, 2, 2);
-    }
   }
 }
 
@@ -239,16 +234,12 @@ class CheckPoint {
     const centerX = this.position.x + this.width / 2;
     const centerY = this.position.y + this.height / 2;
 
-    // Outer glow
     ctx.shadowColor = "#f1be32";
     ctx.shadowBlur = 20;
-
-    // Glowing portal (ellipse)
     ctx.beginPath();
     ctx.ellipse(centerX, centerY, this.width / 2, this.height / 2, 0, 0, 2 * Math.PI);
     ctx.fillStyle = "#ffe066";
     ctx.fill();
-
     ctx.shadowBlur = 0;
   }
   
@@ -260,96 +251,21 @@ class CheckPoint {
   }
 };
 
-//Initializing Player, Platforms, and Checkpoints
+//Initializing player, platforms, and checkpoints
 const player = new Player();
-
-const platformPositions = [
-  { x: 0, y: proportionalSize(canvas.height - 100) },
-  { x: 400, y: proportionalSize(450) },
-  { x: 900, y: proportionalSize(400) },
-  { x: 1500, y: proportionalSize(350) },
-  { x: 2100, y: proportionalSize(330) },
-
-  { x: 2800, y: proportionalSize(350) },
-  { x: 3600, y: proportionalSize(400) },
-  { x: 4500, y: proportionalSize(450) },
-  { x: 5500, y: proportionalSize(380) },
-  { x: 6600, y: proportionalSize(330) },
-
-  { x: 7800, y: proportionalSize(300) },
-  { x: 9000, y: proportionalSize(350) },
-  { x: 10300, y: proportionalSize(400) },
-  { x: 11700, y: proportionalSize(450) },
-  { x: 13200, y: proportionalSize(300) },
-
-  { x: 14800, y: proportionalSize(350) },
-  { x: 16500, y: proportionalSize(400) },
-  { x: 18300, y: proportionalSize(450) },
-  { x: 20200, y: proportionalSize(350) },
-  { x: 22200, y: proportionalSize(450) },
-
-  { x: 24300, y: proportionalSize(300) },
-  { x: 26500, y: proportionalSize(350) },
-  { x: 28800, y: proportionalSize(400) },
-  { x: 31200, y: proportionalSize(450) },
-  { x: 33700, y: proportionalSize(350) },
-
-  { x: 36300, y: proportionalSize(300) },
-  { x: 39000, y: proportionalSize(400) },
-  { x: 41800, y: proportionalSize(350) },
-  { x: 44700, y: proportionalSize(400) },
-
-  { x: 47700, y: proportionalSize(300) },
-  { x: 50800, y: proportionalSize(350) },
-  { x: 54000, y: proportionalSize(450) },
-  { x: 57300, y: proportionalSize(300) },
-  { x: 60700, y: proportionalSize(450) },
-
-  { x: 64200, y: proportionalSize(200) },
-  { x: 67800, y: proportionalSize(350) },
-  { x: 71500, y: proportionalSize(400) },
-  { x: 75300, y: proportionalSize(300) },
-  { x: 79200, y: proportionalSize(250) },
-
-  { x: 83200, y: proportionalSize(350) },
-  { x: 87300, y: proportionalSize(300) },
-  { x: 91500, y: proportionalSize(400) },
-  { x: 95800, y: proportionalSize(450) },
-  { x: 100300, y: proportionalSize(350) },
-
-  { x: 104700, y: proportionalSize(300) },
-  { x: 109300, y: proportionalSize(350) },
-  { x: 114000, y: proportionalSize(400) },
-  { x: 118800, y: proportionalSize(250) }
-];
 
 const platforms = platformPositions.map(
   (platform) => new Platform(platform.x, platform.y)
 );
 
-//checkpoint.y = platform.y - checkpointHeight.
-const checkpointHeight = proportionalSize(70);
-const checkpointPositions = [
-  { x: 2200, y: proportionalSize(330) - checkpointHeight, z: 1 },
-  { x: 6700, y: proportionalSize(330) - checkpointHeight, z: 2 },
-  { x: 13300, y: proportionalSize(300) - checkpointHeight, z: 3 },
-  { x: 22300, y: proportionalSize(450) - checkpointHeight, z: 4 },
-  { x: 33800, y: proportionalSize(350) - checkpointHeight, z: 5 },
-  { x: 44800, y: proportionalSize(400) - checkpointHeight, z: 6 },
-  { x: 60800, y: proportionalSize(450) - checkpointHeight, z: 7 },
-  { x: 79300, y: proportionalSize(250) - checkpointHeight, z: 8 },
-  { x: 100400, y: proportionalSize(350) - checkpointHeight, z: 9 },
-  { x: 118900, y: proportionalSize(250) - checkpointHeight, z: 10 },
-];
-
 const checkpoints = checkpointPositions.map(
   (checkpoint) => new CheckPoint(checkpoint.x, checkpoint.y, checkpoint.z)
 );
 
-//Animate Function- Game Scrolling, COllision Detection, and Respawning
+//Animate Function- Game Scrolling, Collision Detection, and Respawning
 const animate = () => {
-
-  //Animation Based on Best Possible Frame Rate
+  if (!isGameRunning) return; 
+  //Animation based on best possible frame rate
   requestAnimationFrame(animate);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -365,8 +281,9 @@ const animate = () => {
 
   //Draw Player
   player.update();
-
-  //Redraw Based on Movement
+  
+  
+  //Redraw based on movement
   if (keys.rightKey.pressed && player.position.x < proportionalSize(400)) {
     player.velocity.x = 5;
   } else if (keys.leftKey.pressed && player.position.x > proportionalSize(100)) {
@@ -405,11 +322,10 @@ const animate = () => {
         lives--;
       };  
       updateLivesDisplay();
-
+      
+      // Respawn at last checkpoint
       if (lives > 0) {
-        // Respawn at last checkpoint
-
-        //Track World State
+        //Track world state
         const newScrollOffset = lastCheckpoint.x - proportionalSize(10); 
         const scrollDelta = scrollOffset - newScrollOffset;
         platforms.forEach(platform => {
@@ -420,7 +336,7 @@ const animate = () => {
         });
         scrollOffset = newScrollOffset;
 
-        //Set Player State to Checkpoint
+        // Set Player state to checkpoint
         player.reset({ x: proportionalSize(10), y: lastCheckpoint.y });
 
         platforms.forEach(platform => {
@@ -433,24 +349,25 @@ const animate = () => {
           }
         });
 
-        //Display Hit Ground
+        // Display hit ground
         showCheckpointScreen(`You hit the ground! Lives remaining: ${lives}`);
         congrats.style.display = "none";
-        console.log("Respawning at:", lastCheckpoint);
       } else {
         // Game over
         isCheckpointCollisionDetectionActive = false;
         player.velocity.y = 0;
-        showCheckpointScreen("Game Over!");
-        congrats.style.display = "none";
-        resetBtn.hidden = false;
+        if (!hasGameOverScreenShown) {       
+          gameOverScreen.style.display = "block";
+          checkpointScreen.style.display = "none";
+          hasGameOverScreenShown = true;
+        }
       };
     };
   };  
   
   //Collision Detection
   platforms.forEach((platform) => {
-    //Player & Platform Collision Detection
+    //Player & platform collision detection
     const collisionDetectionRules = [
       player.position.y + player.height <= platform.position.y,
       player.position.y + player.height + player.velocity.y >= platform.position.y,
@@ -478,7 +395,7 @@ const animate = () => {
     };
   });
 
-  //Player & Checkpoint Collision Detection
+  //Player and checkpoint collision detection
   checkpoints.forEach((checkpoint, index, checkpoints) => {
     const checkpointDetectionRules = [
       player.position.x >= checkpoint.position.x,
@@ -500,7 +417,7 @@ const animate = () => {
         );
       });
 
-      // Set Respawn Above Platform
+      // Set respawn above platform
       if (platformUnderCheckpoint) {
         lastCheckpoint = {
           x: checkpoint.position.x,
@@ -514,46 +431,42 @@ const animate = () => {
         };
       };
 
-      //Set Last Checkpoint
+      //Set last checkpoint
       lastCheckpoint = {
         x: checkpoint.position.x + scrollOffset, // world-space x
         y: platformUnderCheckpoint
         ? platformUnderCheckpoint.position.y - player.height
         : checkpoint.position.y - player.height
       };
-      
-      console.log("Checkpoint claimed at:", checkpoint.position);
-      console.log("lastCheckpoint now set to:", lastCheckpoint);
 
       checkpoint.claim();
       checkpointsLeft--;
+      const checkpointsClaimed = 10 - checkpointsLeft;
+      maxJumps = 5 + (checkpointsClaimed * (checkpointsClaimed + 1)) / 2;
+      maxJumps = Math.min(maxJumps, 40);
+      jumpsLeft = maxJumps;
       updateLivesDisplay();
       
       if (index === checkpoints.length - 1) {
         isCheckpointCollisionDetectionActive = false;
         congrats.style.display = "block";
         showCheckpointScreen("You reached the final checkpoint!");
-        resetBtn.hidden = false;
         keys.rightKey.pressed = false;
         keys.leftKey.pressed = false;
-        keys.arrowUp.pressed = false;
-        keys.spacebar.pressed = false;
+        keys.jumpKey.pressed = false;
       } else if (player.position.x >= checkpoint.position.x && player.position.x <= checkpoint.position.x + 40) {
         congrats.style.display = "block";
         showCheckpointScreen("You reached a checkpoint!");
       }
     };
   });
-}
+};
 
 //Key State Reset
 const keys = {
-  rightKey: {
-    pressed: false
-  },
-  leftKey: {
-    pressed: false
-  }
+  rightKey: { pressed: false },
+  leftKey: { pressed: false },
+  jumpKey: { pressed: false }
 };
 
 //Move Function
@@ -564,7 +477,7 @@ const movePlayer = (key, xVelocity, isPressed) => {
     return;
   }
 
-  //Variable Input Cases
+  //Variable input cases
   switch (key) {
     case "ArrowLeft":
       keys.leftKey.pressed = isPressed;
@@ -576,7 +489,12 @@ const movePlayer = (key, xVelocity, isPressed) => {
     case "ArrowUp":
     case " ":
     case "Spacebar":
-      player.velocity.y = -12;
+      if (!keys.jumpKey.pressed && jumpsLeft > 0) {
+        player.velocity.y = -20;
+        jumpsLeft--;
+        updateLivesDisplay();
+        keys.jumpKey.pressed = true;
+      }
       break;
     case "ArrowRight":
       keys.rightKey.pressed = isPressed;
@@ -590,63 +508,132 @@ const movePlayer = (key, xVelocity, isPressed) => {
 //Update Lives Display
 const updateLivesDisplay = () => {
   livesCount.textContent = lives;
-  checkpointCount.textContent = checkpointsLeft;
+  checkpointCount.innerHTML = `
+    ${checkpointsLeft}  <span class="checkpoint-icon"></span>
+  `;
+  jumpCountDisplay.textContent = jumpsLeft;
 };
 
 //Start Game Function
 const startGame = () => {
+  isGameRunning = true;
+  // Reset Stats and State
   lives = 5;
+  checkpointsLeft = 10;
+  maxJumps = 5;
+  jumpsLeft = maxJumps;
+  scrollOffset = 0;
+  isCheckpointCollisionDetectionActive = true;
+  keys.jumpKey.pressed = false;
+
+  // Reset player
+  player.onGround = false;
+  player.reset({ x: proportionalSize(10), y: proportionalSize(400) });
+  player.velocity = {
+      x: 0,
+      y: 0,
+    };
+  
+  // Reset canvas size and state
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+
+  // Recreate platforms
+  platforms.length = 0;
+  const platformPositions = [
+    { x: 0, y: canvas.height - proportionalSize(40)},
+    { x: 400, y: proportionalSize(450) },
+    { x: 900, y: proportionalSize(400) },
+    { x: 1500, y: proportionalSize(350) },
+    { x: 2100, y: proportionalSize(330) },
+    { x: 2800, y: proportionalSize(350) },
+    { x: 3600, y: proportionalSize(400) },
+    { x: 4500, y: proportionalSize(450) },
+    { x: 5500, y: proportionalSize(380) },
+    { x: 6600, y: proportionalSize(330) },
+    { x: 7800, y: proportionalSize(300) },
+    { x: 9000, y: proportionalSize(350) },
+    { x: 10300, y: proportionalSize(400) },
+    { x: 11700, y: proportionalSize(450) },
+    { x: 13200, y: proportionalSize(300) },
+    { x: 14800, y: proportionalSize(350) },
+    { x: 16500, y: proportionalSize(400) },
+    { x: 18300, y: proportionalSize(450) },
+    { x: 20200, y: proportionalSize(350) },
+    { x: 22200, y: proportionalSize(450) },
+    { x: 24300, y: proportionalSize(300) },
+    { x: 26500, y: proportionalSize(350) },
+    { x: 28800, y: proportionalSize(400) },
+    { x: 31200, y: proportionalSize(450) },
+    { x: 33700, y: proportionalSize(350) },
+    { x: 36300, y: proportionalSize(300) },
+    { x: 39000, y: proportionalSize(400) },
+    { x: 41800, y: proportionalSize(350) },
+    { x: 44700, y: proportionalSize(400) },
+    { x: 47700, y: proportionalSize(300) },
+    { x: 50800, y: proportionalSize(350) },
+    { x: 54000, y: proportionalSize(450) },
+    { x: 57300, y: proportionalSize(300) },
+    { x: 60700, y: proportionalSize(450) },
+    { x: 64200, y: proportionalSize(200) },
+    { x: 67800, y: proportionalSize(350) },
+    { x: 71500, y: proportionalSize(400) },
+    { x: 75300, y: proportionalSize(300) },
+    { x: 79200, y: proportionalSize(250) },
+    { x: 83200, y: proportionalSize(350) },
+    { x: 87300, y: proportionalSize(300) },
+    { x: 91500, y: proportionalSize(400) },
+    { x: 95800, y: proportionalSize(450) },
+    { x: 100300, y: proportionalSize(350) },
+    { x: 104700, y: proportionalSize(300) },
+    { x: 109300, y: proportionalSize(350) },
+    { x: 114000, y: proportionalSize(400) },
+    { x: 118800, y: proportionalSize(250) }
+  ];
+  platformPositions.forEach(pos => platforms.push(new Platform(pos.x, pos.y)));
+  
+  // Recreate checkpoints
+  checkpoints.length = 0;
+  const checkpointPositions = [
+    { x: 2200, y: proportionalSize(330) - checkpointHeight, z: 1 },
+    { x: 6700, y: proportionalSize(330) - checkpointHeight, z: 2 },
+    { x: 13300, y: proportionalSize(300) - checkpointHeight, z: 3 },
+    { x: 22300, y: proportionalSize(450) - checkpointHeight, z: 4 },
+    { x: 33800, y: proportionalSize(350) - checkpointHeight, z: 5 },
+    { x: 44800, y: proportionalSize(400) - checkpointHeight, z: 6 },
+    { x: 60800, y: proportionalSize(450) - checkpointHeight, z: 7 },
+    { x: 79300, y: proportionalSize(250) - checkpointHeight, z: 8 },
+    { x: 100400, y: proportionalSize(350) - checkpointHeight, z: 9 },
+    { x: 118900, y: proportionalSize(250) - checkpointHeight, z: 10 }
+  ];
+  checkpointPositions.forEach(pos => checkpoints.push(new CheckPoint(pos.x, pos.y, pos.z)));
+  
+  // Reset last checkpoint
+  lastCheckpoint = { x: proportionalSize(10), y: proportionalSize(400) };
+  
+  // Update UI
   canvas.style.display = "block";
   startScreen.style.display = "none";
   livesScreen.style.display = "block";
+  hasGameOverScreenShown = false;
   updateLivesDisplay();
+
+  // Start animation
   animate();
-}
+};
 
 //Reset Game Function
 const resetGame = () => {
-  // Hide checkpoint screen and reset button
+  isGameRunning = false;
+  hasGameOverScreenShown = true;
+  livesScreen.style.display = "none";
   checkpointScreen.style.display = "none";
-  resetBtn.hidden = true;
+  gameOverScreen.style.display = "none";
+  canvas.style.display = "none";
+  startScreen.style.display = "block";
   keys.rightKey.pressed = false;
   keys.leftKey.pressed = false;
-
-  //Reset Lives Display
-  lives = 5;
-  checkpointsLeft = 10;
-  livesScreen.style.display = "block";
-  updateLivesDisplay();
-
-  // Reset player to initial state
-  player.velocity = { x: 0, y: 0 };
-  player.reset({ x: proportionalSize(10), y: proportionalSize(400) });
-
-  // Reset platforms to initial positions
-  platforms.length = 0; // Clear existing platforms
-  platformPositions.forEach((pos) => {
-    platforms.push(new Platform(pos.x, pos.y));
-  });
-
-  // Reset checkpoints to initial state
-  checkpoints.length = 0; // Clear existing checkpoints
-  checkpointPositions.forEach((pos) => {
-    const checkpoint = new CheckPoint(pos.x, pos.y, pos.z);
-    checkpoint.width = proportionalSize(40);
-    checkpoint.height = proportionalSize(70);
-    checkpoint.claimed = false;
-    checkpoints.push(checkpoint);
-  });
-
-  // Reset game state
-  isCheckpointCollisionDetectionActive = true;
-  keys.rightKey.pressed = false;
-  keys.leftKey.pressed = false;
-  lastCheckpoint = { x: proportionalSize(10), y: proportionalSize(400) };
-
-  // Restart the game
-  canvas.style.display = "block";
-  startScreen.style.display = "none";
-  animate();
+  keys.jumpKey.pressed = false;
 };
 
 //Show Checkpoint Function
@@ -655,7 +642,7 @@ const showCheckpointScreen = (msg) => {
   congrats.style.display = "block";
   checkpointMessage.textContent = msg;
   if (isCheckpointCollisionDetectionActive) {
-    setTimeout(() => (checkpointScreen.style.display = "none"), 2000);
+    setTimeout(() => (checkpointScreen.style.display = "none"), 3000);
   }
 };
 
@@ -671,4 +658,8 @@ window.addEventListener("keydown", ({ key }) => {
 
 window.addEventListener("keyup", ({ key }) => {
   movePlayer(key, 0, false);
+  
+  if (key === " " || key === "Spacebar" || key === "ArrowUp") {
+    keys.jumpKey.pressed = false;
+  }
 });
